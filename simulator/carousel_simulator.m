@@ -105,7 +105,6 @@ function [x,y,measurements, measurements_nf]=carousel_simulator(cycle_time,simul
             y.pos2.(['batch_' num2str(n_cycle-1)]).t=[y.pos2.(['batch_' num2str(n_cycle-1)]).t cycle_time:p.filtration_sampling_interval:cycle_time+simulation_step];
             y.pos2.(['batch_' num2str(n_cycle-1)]).m_filt=[y.pos2.(['batch_' num2str(n_cycle-1)]).m_filt zeros(1, length(cycle_time:p.filtration_sampling_interval:cycle_time+simulation_step))];
             
-
         end
         
         %% Station 3

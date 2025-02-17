@@ -8,9 +8,10 @@ rng default
 control_mode= 0; % variable passed to controller.m function, useful to test multiple control strategies
                     % implemented control strategies:
                     % 0: open-loop
-                    % 1: control strategy #3 in Destro et al. (2022); example of end-point controller on temperature (works with u_nominal.V_slurry=3e-6 and cryst_output.conc_slurry=250) 
-disturbance_scenario = 0;  % 0: normal operating conditions; 1: nominal slurry concentration ramp; 2: cake resistance step
-total_duration = 1800; % s
+                    % 1: RL: training
+                    % 2: RL: deployment
+disturbance_scenario = 1;  % 0: normal operating conditions; 1: nominal slurry concentration ramp; 2: cake resistance step
+total_duration = 600; % s
 
 %% set nominal operating variables   
 u_nominal.t_cycle=30;           % nominal set-point of cycle duration (s) 
@@ -35,10 +36,14 @@ sampling_interval = .1; % sampling time for output measurements and states
 %% Set inter-cycle idle time and mesh cleaning idle time                    
 inter_cycle_Dt = 0; % dead time at the end of every cycle (s); default = 0
 mesh_clean_Dt  = 0; % dead time at mesh cleaning (s); default = 0
+
+%% Create RL agent
+% agent = 
+agent= [];
                     
 %% run simulator
 simulation_output=run_simulation(u_nominal,cryst_output,disturbance_scenario,...
     control_mode,total_duration,control_interval,sampling_interval,...
-    inter_cycle_Dt,mesh_clean_Dt);
+    inter_cycle_Dt,mesh_clean_Dt, agent);
 
 clearvars -except simulation_output 

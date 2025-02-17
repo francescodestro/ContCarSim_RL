@@ -1,6 +1,6 @@
 function simulation_output = run_simulation(u,...
     cryst_output,disturbance_scenario,control_mode,total_duration,...
-    control_interval,sampling_interval,inter_cycle_Dt,mesh_clean_Dt)     
+    control_interval,sampling_interval,inter_cycle_Dt,mesh_clean_Dt, agent)     
 
 %% Check sampling and control times and cycle duration
     if abs(round(1/sampling_interval)-1/sampling_interval)>0
@@ -101,7 +101,7 @@ function simulation_output = run_simulation(u,...
     measurements_nf.Tg_out_TI102=round(p.T_room,1);
     measurements_nf.Vdryer_FI101=0; 
     
-    %% other inizializations
+    %% other initializations
     u_nominal=u;
     x=[];   
     y.cake_counter=zeros(1,4);
@@ -133,13 +133,12 @@ function simulation_output = run_simulation(u,...
                if ceil(cycle_time/p.control_interval)== cycle_time/p.control_interval         
                    [u,operating_vars] = controller_online(process_time,cycle_time,...
                    p.stations_working,u,u_nominal,cryst_output_nominal,measurements,operating_vars,x_estim,...
-                   n_cycle,control_mode);
+                   n_cycle,control_mode, agent);
                end
            else
                process_time = process_time+1;
            end
 
-           
         else % rotation                      
            
            % call end of cycle estimation routines
@@ -158,7 +157,7 @@ function simulation_output = run_simulation(u,...
            % call end of cycle control routines and save MVs profiles
            [u,u_nominal,operating_vars] = controller_cycle_switch(process_time,cycle_time,...
                p.stations_working,u,u_nominal,cryst_output_nominal,measurements,...
-               operating_vars,x_estim,n_cycle,control_mode);
+               operating_vars,x_estim,n_cycle,control_mode, agent);
 
            % call disturbance function
            [cryst_output,d,p]=disturbances(process_time,cryst_output,cryst_output_nominal,p,d,u,n_cycle,disturbance_scenario);

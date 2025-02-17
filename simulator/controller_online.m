@@ -1,5 +1,5 @@
 function [u,operating_vars] = controller_online(process_time,cycle_time,...
-    stations_working,u,u_nominal,cryst_output_nominal,measurements,operating_vars,x_estim,n_cycle,control_mode)
+    stations_working,u,u_nominal,cryst_output_nominal,measurements,operating_vars,x_estim,n_cycle,control_mode, agent)
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % Inputs
@@ -70,19 +70,21 @@ function [u,operating_vars] = controller_online(process_time,cycle_time,...
     %                       - operating_vars.V_slurry_vector = u.V_slurry time profile [1 x length(operating_vars.n_cycle_vector)]
     %
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%   
+    
     %% Paper simulator
     % note that u.t_cycle must always be an integer!
     
-    if control_mode == 1 && stations_working(4)==1 % Sample closed-loop control - works when Station 4 is working; control_interval =1, sampling_interval =0.1;
-        if measurements.Tg_out_TI102(end)<295.3 || ...
-            measurements.Tg_out_TI102(end)<=measurements.Tg_out_TI102(end-10)               
-            u.t_cycle=cycle_time+1;
-        else % trigger cycle end
-            u.t_cycle=cycle_time;
-        end
-    elseif control_mode == 0 || stations_working(4)==0 % open-loop - or if Station 4 is empty
-        u.t_cycle=u_nominal.t_cycle;
-    end   
+%     if control_mode == 1 && stations_working(4)==1 % Sample closed-loop control - works when Station 4 is working; control_interval =1, sampling_interval =0.1;
+%         if measurements.Tg_out_TI102(end)<295.3 || ...
+%             measurements.Tg_out_TI102(end)<=measurements.Tg_out_TI102(end-10)               
+%             u.t_cycle=cycle_time+1;
+%         else % trigger cycle end
+%             u.t_cycle=cycle_time;
+%         end
+%     elseif control_mode == 0 || stations_working(4)==0 % open-loop - or if Station 4 is empty
+%         u.t_cycle=u_nominal.t_cycle;
+%     end   
+
    %% do not modify part below
    % Store manipulated variables profile
    operating_vars.t_vector=[operating_vars.t_vector process_time];     
