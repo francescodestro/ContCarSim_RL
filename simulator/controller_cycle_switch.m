@@ -122,7 +122,11 @@ function [u,u_nominal,operating_vars] = controller_cycle_switch(process_time,cyc
         % action saturation
         action = clip(action, agent.min_action, agent.max_action);
 
-        reward = TBD;
+
+        % quality penalty: res_solvent has to be < 0.005
+        alpha = 1e4;  % Steepness parameter (adjust as needed)
+        penalty =  0.5 * (1 + tanh(alpha * (res_solvent - 0.005)));
+        reward = u.V_slurry/u.t_cycle-penalty;
         done = TBD;
         
         agent.replay_buffer = agent.replay_buffer.push({agent.state_pre,...
