@@ -11,7 +11,7 @@ control_mode= 0; % variable passed to controller.m function, useful to test mult
                     % 1: RL: training
                     % 2: RL: deployment
 disturbance_scenario = 1;  % 0: normal operating conditions; 1: nominal slurry concentration ramp; 2: cake resistance step
-total_duration = 600; % s
+total_duration = 3600*1; % s
 
 %% set nominal operating variables   
 u_nominal.t_cycle=30;           % nominal set-point of cycle duration (s) 
@@ -39,22 +39,23 @@ mesh_clean_Dt  = 0; % dead time at mesh cleaning (s); default = 0
 
 %% Create RL agent
 % hyperparameters for DDPG
-state_dim = TBD;
+% state_dim = TBD;
 action_dim = 2;
-min_action = [5, 5]; %action(1)*1e-7 = V_slurry, action(2) = t_cycle
-max_action = [10, 25];
+min_action = [5, 10]; %action(1)*1e-7 = V_slurry, action(2) = t_cycle
+max_action = [10, 20*60];
 max_size = 10000; %buffer size
 update_iteration = 200;
 batch_size = 100;
 gamma = 0.99;
 tau = 0.005;
 lr_critic = 1e-3;
-lr_actor = 1d-4;
+lr_actor = 1e-4;
 exploration_noise = sqrt(1e-1);
+agent=[];
 % Can we define agent as a global variable???
-agent = DDPG(state_dim, action_dim, min_action, max_action, max_size, ...
-    exploration_noise, update_iteration,...
-    batch_size, gamma, tau, lr_critic, lr_actor);
+% agent = DDPG(state_dim, action_dim, min_action, max_action, max_size, ...
+%     exploration_noise, update_iteration,...
+%     batch_size, gamma, tau, lr_critic, lr_actor);
                     
 %% run simulator
 simulation_output=run_simulation(u_nominal,cryst_output,disturbance_scenario,...

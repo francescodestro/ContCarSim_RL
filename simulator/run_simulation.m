@@ -152,12 +152,18 @@ function simulation_output = run_simulation(u,...
            % update timers
            cycle_time = 0;
            n_cycle = n_cycle+1;
+
+           if length(p.stations_working)>1 && p.stations_working(end) == 1
+               res_solvent = y.final_content(end);
+           else
+               res_solvent = 0;
+           end
            p.stations_working = d.stations_working(n_cycle,:);
 
            % call end of cycle control routines and save MVs profiles
            [u,u_nominal,operating_vars] = controller_cycle_switch(process_time,cycle_time,...
                p.stations_working,u,u_nominal,cryst_output_nominal,measurements,...
-               operating_vars,x_estim,n_cycle,control_mode, agent);
+               operating_vars,x_estim,n_cycle,control_mode, res_solvent, agent);
 
            % call disturbance function
            [cryst_output,d,p]=disturbances(process_time,cryst_output,cryst_output_nominal,p,d,u,n_cycle,disturbance_scenario);
