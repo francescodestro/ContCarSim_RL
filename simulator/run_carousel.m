@@ -41,8 +41,8 @@ mesh_clean_Dt  = 0; % dead time at mesh cleaning (s); default = 0
 % hyperparameters for DDPG
 state_dim = TBD;
 action_dim = 2;
-min_action = [5, 5]; %action(1)*1e-7 = V_slurry, action(2) = t_cycle
-max_action = [10, 25];
+min_action = [5; 5]; %action(1)*1e-7 = V_slurry, action(2) = t_cycle
+max_action = [10; 25];
 max_size = 10000; %buffer size
 update_iteration = 200;
 batch_size = 100;
