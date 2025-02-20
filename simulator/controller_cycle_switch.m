@@ -87,19 +87,60 @@ function [u,u_nominal,operating_vars] = controller_cycle_switch(process_time,cyc
     %   - y.final_content: residual solvent content in discharged cakes (scalar or vector?). Note that cakes are not discharged at every cycle
 
     % RL output:
-    %   - t_cycle: cycle duraction for hte next cycle (in future implementations, RL can be used in controller_online for triggering a cycle switch based on real time measurements)
+    %   - t_cycle: cycle duraction for the next cycle (in future implementations, RL can be used in controller_online for triggering a cycle switch based on real time measurements)
     %   - V_slurry: slurry volume for the next cycle
+    
+    state = TBD;
 
     if control_mode == 0
         u.V_slurry=u_nominal.V_slurry;
-    elseif control_mode == 1 
-        [t_cycle,V_slurry]=agent.train(stations_working);
-        u.V_slurry=V_slurry;
-        u.t_cycle=t_cycle;
-    elseif control_mode == 2
-        [t_cycle,V_slurry]=agent.call();
-        u.V_slurry=V_slurry;
-        u.t_cycle=t_cycle;
+    
+    elseif control_mode == 1 %training mode
+
+        % select action from actor neural network
+        action = extractdata(agent.select_action(state));
+        % add exploration noise
+        action = action + agent.exploration_noise*randn(agent.action_dim,1);
+        % action saturation
+        action = clip(action, agent.min_action, agent.max_action);
+
+        reward = TBD;
+        done = TBD;
+        
+        agent.replay_buffer = agent.replay_buffer.push({agent.state_pre,...
+            state, agent.action_pre, agent.reward_pre, double(agent.done_pre)});
+        
+        % update agent's memory on the info of the last step
+        agent.state_pre = state;
+        agent.action_pre = action;
+        agent.reward_pre = reward;
+        agent.done_pre = done;
+        
+        % update agent after one episode
+        if done %one episode ends
+            agent = agent.update();
+
+            %reset memory
+            agent.state_pre = zeros(state_dim,1);
+            agent.action_pre = zeros(action_dim,1);
+            agent.reward_pre = 0;
+            agent.done_pre = 0;
+            
+            % save the learned neural networks
+            agent.save()
+        end
+
+        % implement the action
+        u.V_slurry=action(1)*1e-7;
+        u.t_cycle=round(action(2));
+
+    elseif control_mode == 2 %testing mode
+        action = extractdata(agent.select_action(state));
+        reward = TBD;
+
+        % implement the action
+        u.V_slurry=action(1)*1e-7;
+        u.t_cycle=round(action(2));
     end
 
     %% do not modify part below
