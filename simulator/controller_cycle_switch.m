@@ -1,6 +1,6 @@
 function [u,u_nominal,operating_vars] = controller_cycle_switch(process_time,cycle_time,...
                stations_working,u,u_nominal,cryst_output_nominal,measurements,operating_vars,x_estim,...
-               n_cycle,control_mode, agent)
+               n_cycle,control_mode, res_solvent, agent)
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % Inputs
     %
@@ -84,13 +84,31 @@ function [u,u_nominal,operating_vars] = controller_cycle_switch(process_time,cyc
     %   - measurements.m_filt_WI101: filtrate mass (time profile over the previous cycle, or from the beginning of the process?)
     %   - measurements.Tg_out_TI102: outlet drying gas temperature (time profile over the previous cycle, or from the beginning of the process?)
     %   - stations_working: 0 (inactive) or 1 (active) if the station is working in the next cycle [1x4 array]
-    %   - y.final_content: residual solvent content in discharged cakes (scalar or vector?). Note that cakes are not discharged at every cycle
+    %   - res_solvent: residual solvent content in discharged cakes (scalar or vector?). Note that cakes are not discharged at every cycle
+
+    % measurements (RL state)
+    u.Tinlet_drying
+    u.P_compr
+    mean(measurements.c_slurry_AI101)
+    if length(measurements.m_filt_WI101) > 1
+        interp1(measurement.t_meas,measurements.m_filt_WI101,linspace(0,measurements.t_meas(end),30));
+        interp1(measurement.t_meas,measurements.Tg_out_TI102,linspace(0,measurements.t_meas(end),30));
+    else
+        zeros(1,30)
+        zeros(1,30)
+    end
+    stations_working
+    measurements.t_meas(end)
+
+%     state=
+
+    res_solvent
 
     % RL output:
     %   - t_cycle: cycle duraction for the next cycle (in future implementations, RL can be used in controller_online for triggering a cycle switch based on real time measurements)
     %   - V_slurry: slurry volume for the next cycle
     
-    state = TBD;
+%     state = TBD;
 
     if control_mode == 0
         u.V_slurry=u_nominal.V_slurry;
@@ -104,7 +122,11 @@ function [u,u_nominal,operating_vars] = controller_cycle_switch(process_time,cyc
         % action saturation
         action = clip(action, agent.min_action, agent.max_action);
 
-        reward = TBD;
+
+        % quality penalty: res_solvent has to be < 0.005
+        alpha = 1e4;  % Steepness parameter (adjust as needed)
+        penalty =  0.5 * (1 + tanh(alpha * (res_solvent - 0.005)));
+        reward = u.V_slurry/u.t_cycle-penalty;
         done = TBD;
         
         agent.replay_buffer = agent.replay_buffer.push({agent.state_pre,...
@@ -139,7 +161,7 @@ function [u,u_nominal,operating_vars] = controller_cycle_switch(process_time,cyc
         reward = TBD;
 
         % implement the action
-        u.V_slurry=action(1)*1e-7;
+        u.V_slurry=action(1)*1e-6;
         u.t_cycle=round(action(2));
     end
 
