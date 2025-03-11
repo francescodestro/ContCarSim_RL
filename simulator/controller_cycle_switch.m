@@ -1,6 +1,6 @@
-function [u,u_nominal,operating_vars] = controller_cycle_switch(process_time,cycle_time,...
+function [u,u_nominal,operating_vars, data_buffer] = controller_cycle_switch(process_time,cycle_time,...
                stations_working,u,u_nominal,cryst_output_nominal,measurements,operating_vars,x_estim,...
-               n_cycle,control_mode, res_solvent, agent)
+               n_cycle,control_mode, res_solvent, data_buffer, agent)
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % Inputs
     %
@@ -87,83 +87,81 @@ function [u,u_nominal,operating_vars] = controller_cycle_switch(process_time,cyc
     %   - res_solvent: residual solvent content in discharged cakes (scalar or vector?). Note that cakes are not discharged at every cycle
 
     % measurements (RL state)
-    u.Tinlet_drying
-    u.P_compr
-    mean(measurements.c_slurry_AI101)
+    
+    state = [];
+    
+    state(end+1) = u.Tinlet_drying/323.0-1.0;
+    state(end+1) = u.P_compr/1e5-1.0;
+    state(end+1) = mean(measurements.c_slurry_AI101)/252-1.0;
+
+    %sample from the profile
+    sample_num = 1;
     if length(measurements.m_filt_WI101) > 1
-        interp1(measurement.t_meas,measurements.m_filt_WI101,linspace(0,measurements.t_meas(end),30));
-        interp1(measurement.t_meas,measurements.Tg_out_TI102,linspace(0,measurements.t_meas(end),30));
+        indices = round(linspace(1, length(measurements.m_filt_WI101), sample_num));
+        state(end+1:end+sample_num) = measurements.m_filt_WI101(indices)*1e3-1.0;
+        state(end+1:end+sample_num) = measurements.Tg_out_TI102(indices)/295-1.0;
     else
-        zeros(1,30)
-        zeros(1,30)
+        state(end+1:end+sample_num) = zeros(1,sample_num);
+        state(end+1:end+sample_num) = zeros(1,sample_num);
     end
-    stations_working
-    measurements.t_meas(end)
 
-%     state=
-
-    res_solvent
+    state(end+1:end+4) = stations_working-0.5;
+    % state(end+1) = measurements.t_meas(end);
+    state(end+1) = res_solvent*200-0.5;
+    
+    %check the shape and dimension of the state 
+    if isrow(state)
+        state = state';  % Transpose to column vector
+    end
+    if size(state) ~= agent.state_dim
+        warning('The dimension of the state is %d, which is not equal to %d. Exiting the program.', size(state), agent.state_dim);
+        return;  % Exit the program
+    end
 
     % RL output:
     %   - t_cycle: cycle duraction for the next cycle (in future implementations, RL can be used in controller_online for triggering a cycle switch based on real time measurements)
     %   - V_slurry: slurry volume for the next cycle
-    
-%     state = TBD;
 
     if control_mode == 0
+
         u.V_slurry=u_nominal.V_slurry;
+        action = [u.V_slurry*1e7; u.t_cycle];
     
     elseif control_mode == 1 %training mode
 
         % select action from actor neural network
-        action = extractdata(agent.select_action(state));
+        action = gather(agent.select_action(state));
+        action = double(extractdata(action));
         % add exploration noise
         action = action + agent.exploration_noise*randn(agent.action_dim,1);
+        % scale action from [-1,1] to [min_action, max_action]
+        control = 0.5*(action+1.0).*(agent.max_action-agent.min_action) + agent.min_action;
         % action saturation
-        action = clip(action, agent.min_action, agent.max_action);
-
-
-        % quality penalty: res_solvent has to be < 0.005
-        alpha = 1e4;  % Steepness parameter (adjust as needed)
-        penalty =  0.5 * (1 + tanh(alpha * (res_solvent - 0.005)));
-        reward = u.V_slurry/u.t_cycle-penalty;
-        done = TBD;
-        
-        agent.replay_buffer = agent.replay_buffer.push({agent.state_pre,...
-            state, agent.action_pre, agent.reward_pre, double(agent.done_pre)});
-        
-        % update agent's memory on the info of the last step
-        agent.state_pre = state;
-        agent.action_pre = action;
-        agent.reward_pre = reward;
-        agent.done_pre = done;
-        
-        % update agent after one episode
-        if done %one episode ends
-            agent = agent.update();
-
-            %reset memory
-            agent.state_pre = zeros(state_dim,1);
-            agent.action_pre = zeros(action_dim,1);
-            agent.reward_pre = 0;
-            agent.done_pre = 0;
-            
-            % save the learned neural networks
-            agent.save()
-        end
-
+        control = clip(control, agent.min_action, agent.max_action); 
         % implement the action
-        u.V_slurry=action(1)*1e-7;
-        u.t_cycle=round(action(2));
-
+        u.V_slurry=control(1)*1e-7;
+        u.t_cycle=round(control(2));
+   
     elseif control_mode == 2 %testing mode
-        action = extractdata(agent.select_action(state));
-        reward = TBD;
+
+        action = gather(agent.select_action(state));
+        action = double(extractdata(action));
+        % scale action from [-1,1] to [min_action, max_action]
+        control = 0.5*(action+1.0).*(agent.max_action-agent.min_action) + agent.min_action;
 
         % implement the action
-        u.V_slurry=action(1)*1e-6;
-        u.t_cycle=round(action(2));
+        u.V_slurry=control(1)*1e-7;
+        u.t_cycle=round(control(2));
+        
     end
+
+    %reward calculation
+    alpha = 1e3; %steepness parameter (adjust as needed)
+    penalty =  0.5 * (1 + tanh(alpha*(res_solvent - 0.005))); %quality penalty: res_solvent has to be < 0.005
+    reward = u.V_slurry/u.t_cycle*1e7  - 10.0*penalty;
+    data_buffer{end}{2} = state; %current state is the next_state for the last cycle
+    data_buffer{end+1} = {state, state, action, reward}; %the second state is a place holder
+
 
     %% do not modify part below
     if stations_working(1)==0 % if Station 1 is empty at next cycle

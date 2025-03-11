@@ -1,6 +1,6 @@
 function simulation_output = run_simulation(u,...
     cryst_output,disturbance_scenario,control_mode,total_duration,...
-    control_interval,sampling_interval,inter_cycle_Dt,mesh_clean_Dt, agent)     
+    control_interval,sampling_interval,inter_cycle_Dt,mesh_clean_Dt,data_buffer,agent)     
 
 %% Check sampling and control times and cycle duration
     if abs(round(1/sampling_interval)-1/sampling_interval)>0
@@ -133,7 +133,7 @@ function simulation_output = run_simulation(u,...
                if ceil(cycle_time/p.control_interval)== cycle_time/p.control_interval         
                    [u,operating_vars] = controller_online(process_time,cycle_time,...
                    p.stations_working,u,u_nominal,cryst_output_nominal,measurements,operating_vars,x_estim,...
-                   n_cycle,control_mode, agent);
+                   n_cycle,control_mode);
                end
            else
                process_time = process_time+1;
@@ -161,9 +161,9 @@ function simulation_output = run_simulation(u,...
            p.stations_working = d.stations_working(n_cycle,:);
 
            % call end of cycle control routines and save MVs profiles
-           [u,u_nominal,operating_vars] = controller_cycle_switch(process_time,cycle_time,...
+           [u,u_nominal,operating_vars,data_buffer] = controller_cycle_switch(process_time,cycle_time,...
                p.stations_working,u,u_nominal,cryst_output_nominal,measurements,...
-               operating_vars,x_estim,n_cycle,control_mode, res_solvent, agent);
+               operating_vars,x_estim,n_cycle,control_mode, res_solvent,data_buffer,agent);
 
            % call disturbance function
            [cryst_output,d,p]=disturbances(process_time,cryst_output,cryst_output_nominal,p,d,u,n_cycle,disturbance_scenario);
@@ -240,6 +240,7 @@ function simulation_output = run_simulation(u,...
         simulation_output.settings.u_nom=u_nominal;
         simulation_output.settings.inter_cycle_Dt=inter_cycle_Dt;
         simulation_output.settings.mesh_clean_Dt=mesh_clean_Dt;
+        simulation_output.data_buffer = data_buffer;
 
     else
         warning('No cakes discharged: increase simulation duration')

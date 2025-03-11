@@ -26,11 +26,6 @@ classdef DDPG
         num_actor_update_iteration
         num_training
         
-        %agent's memory of the process
-        state_pre %remember the last state
-        action_pre %remember the last action
-        reward_pre %remember the last reward
-        done_pre %remember the last status of "done"
     end
 
     methods
@@ -63,17 +58,11 @@ classdef DDPG
             obj.num_actor_update_iteration = 1;
             obj.num_training = 1;
 
-            obj.state_pre = zeros(state_dim,1);
-            obj.action_pre = zeros(action_dim,1);
-            obj.reward_pre = 0;
-            obj.done_pre = 0;
         end
 
         function action = select_action(obj, state)
             dlstate = dlarray(state,'CB');
             action = forward(obj.actor.NN, dlstate);
-            %scale [0,1] it to [min_action, max_action]
-            action = action.*(obj.max_action-obj.min_action)+obj.min_action;
         end
 
         function obj = update(obj)
@@ -84,26 +73,23 @@ classdef DDPG
             for i=1:obj.update_iteration
 
                 % Sample replay buffer
-                [x, y, u, r, d] = obj.replay_buffer.sample(obj.batch_size);
+                [x, y, u, r] = obj.replay_buffer.sample(obj.batch_size);
                 state = dlarray(x, 'CB');
                 action = dlarray(u, 'CB');
                 next_state = dlarray(y, 'CB');
-                done = dlarray(1-d, 'CB');
                 reward = dlarray(r, 'CB');
                 
                 if canUseGPU
                     state = gpuArray(state);
                     action = gpuArray(action);
                     next_state = gpuArray(next_state);
-                    done = gpuArray(done);
                     reward = gpuArray(reward);
                 end
 
                 % Compute the target Q value
                 next_action = forward(obj.actor_target.NN, next_state);
-                next_action = next_action.*(obj.max_action-obj.min_action)+obj.min_action;
                 target_Q = forward(obj.critic_target.NN, [next_state; next_action]);
-                target_Q = reward + (done.*obj.gamma.*target_Q);
+                target_Q = reward + (obj.gamma.*target_Q);
                 
                 % Compute critic loss and gradient 
                 [loss_critic, gradients_critic] = dlfeval(@compute_critic_gradients, obj.critic.NN,...
@@ -135,8 +121,11 @@ classdef DDPG
             save('critic_weights.mat', 'critic_weights'); % Save trained network
         end
 
-        function obj = load(obj)
-            load('actor_weights.mat', 'actor_weights'); % Save trained network
+        function obj = load(obj, file)
+            if nargin < 2
+                file = 'actor_weights.mat';
+            end
+            load(file, 'actor_weights'); % Save trained network
             obj.actor.NN.Learnables = actor_weights;
         end
 
@@ -161,8 +150,8 @@ end
 
 
 function [loss, gradients] = compute_actor_gradients(actorNN, criticNN, state)
+
     action = forward(actorNN, state);
-    action = action.*(obj.max_action-obj.min_action)+obj.min_action;
     loss = -mean(forward(criticNN, cat(1, state, action))); % Compute actor loss
     gradients = dlgradient(loss, actorNN.Learnables); % Compute gradients
 
