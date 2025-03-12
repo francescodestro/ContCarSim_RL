@@ -55,7 +55,7 @@ function simulation_output = run_simulation(u,...
     d.stations_working=d.fouling.stations_working;
  
     % Create parameters object    
-    p.min_length_discr=3e-4;   % grid spacing for deliquoring and drying
+    p.min_length_discr=10e-4;   % grid spacing for deliquoring and drying
     p = carousel_parameters(p);     
     
     % Initialize object containing operating variables profile
